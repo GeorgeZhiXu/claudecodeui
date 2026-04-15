@@ -1,7 +1,6 @@
 import type {
   AgentCategory,
   AgentProvider,
-  AuthStatus,
   ClaudeMcpFormState,
   CodexMcpFormState,
   CodeEditorSettingsState,
@@ -32,13 +31,6 @@ export const DEFAULT_CODE_EDITOR_SETTINGS: CodeEditorSettingsState = {
   showMinimap: true,
   lineNumbers: true,
   fontSize: '14',
-};
-
-export const DEFAULT_AUTH_STATUS: AuthStatus = {
-  authenticated: false,
-  email: null,
-  loading: true,
-  error: null,
 };
 
 export const DEFAULT_MCP_TEST_RESULT: McpTestResult = {
@@ -86,12 +78,4 @@ export const DEFAULT_CURSOR_PERMISSIONS: CursorPermissionsState = {
   allowedCommands: [],
   disallowedCommands: [],
   skipPermissions: false,
-};
-
-export const AUTH_STATUS_ENDPOINTS: Record<AgentProvider, string> = {
-  claude: '/api/cli/claude/status',
-  cursor: '/api/cli/cursor/status',
-  codex: '/api/cli/codex/status',
-  gemini: '/api/cli/gemini/status',
-  kiro: '/api/cli/kiro/status',
 };
