@@ -10,7 +10,7 @@ export type ProviderAuthStatus = {
 
 export type ProviderAuthStatusMap = Record<LLMProvider, ProviderAuthStatus>;
 
-export const CLI_PROVIDERS: LLMProvider[] = ['claude', 'cursor', 'codex', 'gemini'];
+export const CLI_PROVIDERS: LLMProvider[] = ['claude', 'cursor', 'codex', 'gemini', 'kiro'];
 
 export const CLI_AUTH_STATUS_ENDPOINTS: Record<LLMProvider, string> = {
   claude: '/api/cli/claude/status',
@@ -18,6 +18,14 @@ export const CLI_AUTH_STATUS_ENDPOINTS: Record<LLMProvider, string> = {
   codex: '/api/cli/codex/status',
   gemini: '/api/cli/gemini/status',
   kiro: '/api/cli/kiro/status',
+};
+
+export const PROVIDER_AUTH_STATUS_ENDPOINTS: Record<LLMProvider, string> = {
+  claude: '/api/providers/claude/auth/status',
+  cursor: '/api/providers/cursor/auth/status',
+  codex: '/api/providers/codex/auth/status',
+  gemini: '/api/providers/gemini/auth/status',
+  kiro: '/api/providers/kiro/auth/status',
 };
 
 export const createInitialProviderAuthStatusMap = (loading = true): ProviderAuthStatusMap => ({
