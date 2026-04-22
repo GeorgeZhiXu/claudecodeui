@@ -1,0 +1,180 @@
+/**
+ * kiro-sdk — public API
+ *
+ * Usage:
+ *   import { query } from 'kiro-sdk';
+ *   for await (const msg of query({ prompt: 'Hello', options: { cwd: '.' } })) { ... }
+ */
+
+import { AcpTransport } from './acp-transport.js';
+import { SessionRouter } from './session.js';
+import type { Options, Query, KiroMessage, AcpSessionResult } from './types.js';
+
+// Singleton transport — one kiro-cli acp process for all queries
+let transport: AcpTransport | null = null;
+const router = new SessionRouter();
+
+function getTransport(): AcpTransport {
+  if (!transport) {
+    transport = new AcpTransport();
+    transport.setNotificationHandler((method, params) => {
+      if (method !== 'session/update') return;
+
+      const sessionId = params.sessionId as string;
+      const update = (params.update || params) as Record<string, unknown>;
+      const type = (update.sessionUpdate || update.type || update.kind) as string;
+
+      if (!sessionId || !router.has(sessionId)) return;
+
+      if (type === 'agent_message_chunk') {
+        const content = update.content as Record<string, unknown> | undefined;
+        const text = (content?.text || '') as string;
+        if (text) {
+          router.push(sessionId, { type: 'assistant', content: text, session_id: sessionId });
+        }
+      } else if (type === 'tool_call') {
+        router.push(sessionId, {
+          type: 'tool_use',
+          name: (update.name || update.toolName || 'unknown') as string,
+          input: (update.parameters || update.input || {}) as Record<string, unknown>,
+          id: (update.id || update.toolUseId || '') as string,
+          status: (update.status || 'running') as 'running' | 'completed' | 'error',
+          session_id: sessionId,
+        });
+      } else if (type === 'tool_call_update') {
+        const content = update.content as Record<string, unknown> | undefined;
+        router.push(sessionId, {
+          type: 'tool_progress',
+          content: (content?.text || update.text || '') as string,
+          tool_id: (update.id || update.toolUseId || '') as string,
+          session_id: sessionId,
+        });
+      } else if (type === 'turn_end') {
+        router.finish(sessionId);
+      }
+    });
+  }
+  return transport;
+}
+
+/**
+ * Send a prompt with retry on "not idle" errors (e.g. after session/load).
+ */
+async function sendPromptWithRetry(t: AcpTransport, sessionId: string, text: string, maxAttempts = 3): Promise<unknown> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await t.sendRpc('session/prompt', {
+        sessionId,
+        prompt: [{ type: 'text', text }],
+      });
+    } catch (err: any) {
+      if (err.message?.includes('not idle') && attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, attempt * 2000));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/**
+ * Send a prompt to Kiro and stream back typed messages.
+ *
+ * Mirrors the `query()` function from @anthropic-ai/claude-agent-sdk.
+ * Returns an AsyncGenerator<KiroMessage> with additional control methods.
+ */
+export function query(params: { prompt: string; options?: Options }): Query {
+  const { prompt, options = {} } = params;
+  let acpSessionId: string | null = null;
+
+  const generator = (async function* (): AsyncGenerator<KiroMessage, void, undefined> {
+    const t = getTransport();
+    await t.connect(buildAcpArgs(options));
+
+    if (options.resume) {
+      // Load existing session from disk, then send a new prompt
+      await t.sendRpc('session/load', {
+        sessionId: options.resume,
+        cwd: options.cwd || process.cwd(),
+        mcpServers: options.mcpServers || [],
+      });
+      acpSessionId = options.resume;
+    } else {
+      const result = await t.sendRpc('session/new', {
+        cwd: options.cwd || process.cwd(),
+        mcpServers: options.mcpServers || [],
+      }) as AcpSessionResult;
+      acpSessionId = result?.sessionId;
+    }
+
+    if (!acpSessionId) throw new Error('Failed to create ACP session');
+
+    router.register(acpSessionId);
+
+    try {
+      // Note: set_model is intentionally skipped — it crashes kiro-cli with
+      // certain model ID formats. Kiro uses 'auto' by default which works well.
+
+      // Fire the prompt RPC but DON'T await it before yielding.
+      // kiro-cli streams notifications (agent_message_chunk, tool_call, etc.)
+      // BEFORE the RPC response arrives. If we await here, the generator blocks
+      // and the UI shows "Thinking..." until the entire turn completes.
+      const promptDone = sendPromptWithRetry(t, acpSessionId!, prompt)
+        .then((result) => {
+        const r = result as Record<string, unknown> | null;
+        if (r?.stopReason) {
+          router.finish(acpSessionId!);
+        }
+      }).catch((err) => {
+        router.finish(acpSessionId!, true);
+      });
+
+      // Yield messages as they stream in via notifications
+      yield* router.iterate(acpSessionId);
+
+      // Ensure the RPC has settled before we exit
+      await promptDone;
+    } finally {
+      router.unregister(acpSessionId);
+    }
+  })();
+
+  // Attach control methods to match Claude SDK's Query interface
+  const query = generator as Query;
+
+  Object.defineProperty(query, 'sessionId', {
+    get: () => acpSessionId,
+  });
+
+  query.interrupt = async () => {
+    if (acpSessionId) {
+      const t = getTransport();
+      await t.sendRpc('session/cancel', { sessionId: acpSessionId }).catch(() => {});
+      router.finish(acpSessionId, false);
+    }
+  };
+
+  query.setModel = async (model: string) => {
+    const t = getTransport();
+    await t.sendRpc('session/set_model', { model });
+  };
+
+  return query;
+}
+
+/** Disconnect the ACP process. Call on shutdown. */
+export function disconnect(): void {
+  transport?.disconnect();
+  transport = null;
+}
+
+function buildAcpArgs(options: Options): string[] {
+  const args: string[] = [];
+  if (options.trustAllTools) args.push('--trust-all-tools');
+  if (options.trustTools?.length) args.push('--trust-tools', options.trustTools.join(','));
+  if (options.agent) args.push('--agent', options.agent);
+  return args;
+}
+
+// Re-export types
+export type { Options, Query, KiroMessage, KiroAssistantMessage, KiroToolUseMessage, KiroToolProgressMessage, KiroResultMessage } from './types.js';
