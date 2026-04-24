@@ -1,0 +1,11 @@
+# Verification configuration for SDEGen
+# This task (GH-14) modifies only .github/workflows/sync-upstream.yml
+# No application source code is changed, so build/test verification is not applicable.
+
+verification:
+  # No build or test steps needed for workflow-only changes
+  steps: []
+
+  non_blocking:
+    - name: "N/A — workflow-only change"
+      reason: "No baseline verification needed; this task modifies only a GitHub Actions YAML file, not application source code."
