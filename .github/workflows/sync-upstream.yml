@@ -12,6 +12,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  workflows: write
 
 jobs:
   sync:
@@ -77,9 +78,15 @@ jobs:
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Auto-merge PR
+        id: auto-merge
         if: steps.merge.outcome == 'failure' && steps.create-pr.outcome == 'success'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh pr merge "${{ steps.create-pr.outputs.pr_url }}" --merge --delete-branch
+
+      - name: Log auto-merge failure
+        if: steps.auto-merge.outcome == 'failure'
+        run: |
+          echo "::warning::Auto-merge failed for PR ${{ steps.create-pr.outputs.pr_url }}. The PR remains open for manual review."
