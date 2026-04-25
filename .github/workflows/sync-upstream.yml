@@ -13,6 +13,11 @@ permissions:
   contents: write
   pull-requests: write
 
+# SYNC_PAT secret required: a Personal Access Token (classic) with `repo` and
+# `workflow` scopes, or a fine-grained PAT with Contents + Workflows read-write.
+# Without it, pushes that include .github/workflows/ file changes will fail
+# because GITHUB_TOKEN cannot create or update workflow files.
+# Add the secret via: GitHub repo Settings > Secrets and variables > Actions.
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -22,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT || github.token }}
 
       - name: Configure git
         run: |
@@ -63,7 +69,7 @@ jobs:
         id: create-pr
         if: steps.merge.outcome == 'failure'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="auto-sync-upstream-$(date +%Y%m%d%H%M%S)"
           git checkout -b "$BRANCH"
@@ -81,7 +87,7 @@ jobs:
         if: steps.merge.outcome == 'failure' && steps.create-pr.outcome == 'success'
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
         run: |
           gh pr merge "${{ steps.create-pr.outputs.pr_url }}" --merge --delete-branch
 
