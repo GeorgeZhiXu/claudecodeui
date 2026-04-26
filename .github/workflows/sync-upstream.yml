@@ -63,7 +63,10 @@ jobs:
         run: |
           curl -fsSL https://claude.ai/install.sh | bash
           export PATH="$HOME/.claude/local/bin:$PATH"
-          claude -p "There are git merge conflicts from merging upstream/main into this fork's main branch. Resolve all conflicts by keeping changes from both sides when possible. For package.json, preserve both upstream additions and fork-specific customizations (like build:sdk). After resolving, stage all files with 'git add .' and commit with 'git commit --no-edit'." --allowedTools "Bash(git*)" "Bash(cat*)" "Bash(grep*)" "Edit" "Read"
+          claude -p "There are git merge conflicts from merging upstream/main into this fork's main branch. Resolve all conflicts by keeping changes from both sides when possible. For package.json, preserve both upstream additions and fork-specific customizations (like the 'kiro-sdk' dependency). After resolving, stage all files with 'git add .' and commit with 'git commit --no-edit'." \
+          --allowedTools "Bash(git*)" "Bash(cat*)" "Bash(grep*)" "Edit" "Read" \
+          --dangerously-skip-permissions \
+          --bare
 
       - name: Create PR with resolved conflicts
         id: create-pr
@@ -95,3 +98,22 @@ jobs:
         if: steps.auto-merge.outcome == 'failure'
         run: |
           echo "::warning::Auto-merge failed for PR ${{ steps.create-pr.outputs.pr_url }}. The PR remains open for manual review."
+
+      - name: Cleanup stale sync branches
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          # Delete branches starting with auto-sync-upstream- that are older than 1 day
+          # This handles branches left behind by failed runs
+          gh api repos/GeorgeZhiXu/claudecodeui/branches --paginate -q '.[].name' | \
+          grep "^auto-sync-upstream-" | \
+          while read -r branch; do
+            # Extract date from branch name auto-sync-upstream-YYYYMMDD...
+            BRANCH_DATE=$(echo "$branch" | sed 's/auto-sync-upstream-\([0-9]\{8\}\).*/\1/')
+            YESTERDAY=$(date -d "yesterday" +%Y%m%d)
+            if [ "$BRANCH_DATE" -lt "$YESTERDAY" ]; then
+              echo "Deleting stale branch: $branch"
+              gh api -X DELETE "repos/GeorgeZhiXu/claudecodeui/git/refs/heads/$branch" || true
+            fi
+          done

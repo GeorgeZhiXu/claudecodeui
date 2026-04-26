@@ -127,7 +127,8 @@ VITE_BASE_PATH=/cloudcli/ npm run server
 ### Fork Maintenance
 
 - Forks can automatically merge updates from `siteboon/claudecodeui` by enabling the GitHub Actions workflow in `.github/workflows/sync-upstream.yml`.
-- The workflow fetches `upstream/main`, merges it into your fork's `main`, and pushes only when the merge succeeds. If upstream introduces conflicts, Claude Code automatically resolves them and opens a PR for review.
+- **Note**: To handle workflow updates and automated PR creation, you must add a GitHub secret named `SYNC_PAT`. We recommend a **Fine-grained Personal Access Token** with `Contents: Read/Write`, `Workflows: Read/Write`, and `Pull requests: Read/Write` permissions.
+- The workflow fetches `upstream/main`, merges it into your fork's `main`, and pushes only when the merge succeeds. If upstream introduces conflicts, Claude Code automatically resolves them, opens a PR, and cleans up stale sync branches.
 
 ### Fork Development Setup
 
