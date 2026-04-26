@@ -91,6 +91,31 @@ cloudcli
 
 更多配置选项、PM2、远程服务器设置等，请参阅 **[文档 →](https://cloudcli.ai/docs)**。
 
+### Fork 维护
+
+- 通过启用 `.github/workflows/sync-upstream.yml` 中的 GitHub Actions 工作流，Fork 仓库可以自动合并来自 `siteboon/claudecodeui` 的更新。
+- **注意**：为了处理工作流更新和自动创建 PR，您必须添加名为 `SYNC_PAT` 的 GitHub Secret。我们推荐使用具有 `Contents: Read/Write`、`Workflows: Read/Write` 和 `Pull requests: Read/Write` 权限的 **Fine-grained Personal Access Token**。
+- 工作流会获取 `upstream/main`，将其合并到您 Fork 仓库的 `main` 分支，并在合并成功时推送。如果上游引入了冲突，Claude Code 会自动解决冲突、打开 PR 并清理过期的同步分支。
+
+### Fork 开发设置
+
+本 Fork 使用 `kiro-sdk` 作为 Git 子模块。本地开发设置步骤如下：
+
+```bash
+git clone --recursive https://github.com/GeorgeZhiXu/claudecodeui.git
+cd claudecodeui
+
+# 如果您在克隆时没有使用 --recursive 参数：
+git submodule update --init --recursive
+
+# 构建 SDK（必需 — 未发布到 npm）
+npm run build:sdk
+
+# 安装主要依赖并启动
+npm install
+npm run dev
+```
+
 #### Docker Sandboxes（实验性）
 
 在隔离的沙箱中运行代理，具有虚拟机管理程序级别的隔离。默认启动 Claude Code。需要 [`sbx` CLI](https://docs.docker.com/ai/sandboxes/get-started/)。

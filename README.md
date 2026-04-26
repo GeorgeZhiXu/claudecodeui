@@ -132,19 +132,21 @@ VITE_BASE_PATH=/cloudcli/ npm run server
 
 ### Fork Development Setup
 
-This fork uses `kiro-sdk` and `kiro-sdk-python` as separate repos. To set up for local development:
+This fork uses `kiro-sdk` as a Git submodule. To set up for local development:
 
 ```bash
-git clone https://github.com/GeorgeZhiXu/claudecodeui.git
+git clone --recursive https://github.com/GeorgeZhiXu/claudecodeui.git
 cd claudecodeui
 
-# Clone the SDK (required — not published to npm)
-git clone https://github.com/GeorgeZhiXu/kiro-sdk.git
-cd kiro-sdk && npm install && npm run build && cd ..
+# If you already cloned without --recursive:
+git submodule update --init --recursive
 
-# Install dependencies and start
+# Build the SDK (required — not published to npm)
+npm run build:sdk
+
+# Install main dependencies and start
 npm install
-npm run start
+npm run dev
 ```
 
 
