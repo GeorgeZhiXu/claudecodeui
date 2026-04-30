@@ -137,7 +137,9 @@ export function useChatComposerState({
 }: UseChatComposerStateArgs) {
   const [input, setInput] = useState(() => {
     if (typeof window !== 'undefined' && selectedProject) {
-      return safeLocalStorage.getItem(`draft_input_${selectedProject.name}`) || '';
+      // Draft inputs are keyed by the DB projectId so per-project drafts
+      // survive display-name changes.
+      return safeLocalStorage.getItem(`draft_input_${selectedProject.projectId}`) || '';
     }
     return '';
   });
@@ -278,9 +280,11 @@ export function useChatComposerState({
         const args =
           commandMatch && commandMatch[1] ? commandMatch[1].trim().split(/\s+/) : [];
 
+        // The `/api/commands/execute` context sends `projectId` now instead of
+        // a folder-derived project name; the path is still included verbatim.
         const context = {
           projectPath: selectedProject.fullPath || selectedProject.path,
-          projectName: selectedProject.name,
+          projectId: selectedProject.projectId,
           sessionId: currentSessionId,
           provider,
           model: provider === 'cursor' ? cursorModel : provider === 'codex' ? codexModel : provider === 'gemini' ? geminiModel : provider === 'kiro' ? kiroModel : claudeModel,
@@ -506,7 +510,7 @@ export function useChatComposerState({
         });
 
         try {
-          const response = await authenticatedFetch(`/api/projects/${selectedProject.name}/upload-images`, {
+          const response = await authenticatedFetch(`/api/projects/${selectedProject.projectId}/upload-images`, {
             method: 'POST',
             headers: {},
             body: formData,
@@ -690,7 +694,7 @@ export function useChatComposerState({
         textareaRef.current.style.height = 'auto';
       }
 
-      safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
+      safeLocalStorage.removeItem(`draft_input_${selectedProject.projectId}`);
     },
     [
       selectedSession,
@@ -734,22 +738,22 @@ export function useChatComposerState({
     if (!selectedProject) {
       return;
     }
-    const savedInput = safeLocalStorage.getItem(`draft_input_${selectedProject.name}`) || '';
+    const savedInput = safeLocalStorage.getItem(`draft_input_${selectedProject.projectId}`) || '';
     setInput((previous) => {
       const next = previous === savedInput ? previous : savedInput;
       inputValueRef.current = next;
       return next;
     });
-  }, [selectedProject?.name]);
+  }, [selectedProject?.projectId]);
 
   useEffect(() => {
     if (!selectedProject) {
       return;
     }
     if (input !== '') {
-      safeLocalStorage.setItem(`draft_input_${selectedProject.name}`, input);
+      safeLocalStorage.setItem(`draft_input_${selectedProject.projectId}`, input);
     } else {
-      safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
+      safeLocalStorage.removeItem(`draft_input_${selectedProject.projectId}`);
     }
   }, [input, selectedProject]);
 
