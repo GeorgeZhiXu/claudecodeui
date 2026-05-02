@@ -2,7 +2,7 @@ import express from 'express';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
-import { sessionNamesDb } from '../database/db.js';
+import { sessionsDb } from '../modules/database/index.js';
 
 const router = express.Router();
 const KIRO_SESSIONS_DIR = path.join(os.homedir(), '.kiro', 'sessions', 'cli');
@@ -34,7 +34,7 @@ router.delete('/sessions/:sessionId', async (req, res) => {
             }
         }
 
-        sessionNamesDb.deleteName(sessionId, 'kiro');
+        sessionsDb.deleteSessionById(sessionId);
 
         if (!deleted) {
             return res.status(404).json({ success: false, error: 'Kiro session file not found' });

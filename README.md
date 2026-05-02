@@ -149,6 +149,28 @@ npm install
 npm run dev
 ```
 
+#### Troubleshooting: `Cannot find package 'kiro-sdk'`
+
+If `npm run start` (or `npm run server`) fails with:
+
+```
+Error: Cannot find package '.../node_modules/kiro-sdk/index.js' imported from .../dist-server/server/kiro-cli.js
+```
+
+the `kiro-sdk` submodule is missing its `package.json` (the submodule working tree was not initialized or got cleared). Run:
+
+```bash
+git submodule update --init --recursive
+npm run build:sdk
+```
+
+If `kiro-sdk/package.json` is still missing after that, restore it from the submodule's git index:
+
+```bash
+git -C kiro-sdk checkout -- package.json src/index.ts
+npm run build:sdk
+```
+
 
 ---
 
