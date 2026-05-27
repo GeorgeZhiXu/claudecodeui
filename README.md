@@ -132,7 +132,16 @@ VITE_BASE_PATH=/cloudcli/ npm run server
 
 ### Fork Development Setup
 
-This fork uses `kiro-sdk` as a Git submodule. To set up for local development:
+This fork uses `kiro-sdk` as a Git submodule. The quickest way to get started:
+
+```bash
+git clone https://github.com/GeorgeZhiXu/claudecodeui.git
+cd claudecodeui
+./setup.sh   # initializes submodules, builds SDK, installs dependencies
+npm run dev
+```
+
+Or do it manually:
 
 ```bash
 git clone --recursive https://github.com/GeorgeZhiXu/claudecodeui.git
@@ -148,6 +157,8 @@ npm run build:sdk
 npm install
 npm run dev
 ```
+
+> **Note (Amazon Linux 2):** If `npm install` fails building `better-sqlite3` with a C++20 error, install `gcc10-c++` and re-run `./setup.sh` — it detects and uses gcc10 automatically.
 
 #### Troubleshooting: `Cannot find package 'kiro-sdk'`
 
