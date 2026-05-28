@@ -125,6 +125,28 @@ export const GEMINI_MODELS = {
 };
 
 /**
+ * OpenCode Models
+ *
+ * OpenCode model ids include the upstream provider prefix.
+ */
+export const OPENCODE_MODELS = {
+  OPTIONS: [
+    { value: "anthropic/claude-sonnet-4-5", label: "Claude Sonnet 4.5" },
+    { value: "anthropic/claude-opus-4-7", label: "Claude Opus 4.7" },
+    { value: "anthropic/claude-opus-4-6", label: "Claude Opus 4.6" },
+    { value: "anthropic/claude-haiku-4-5", label: "Claude Haiku 4.5" },
+    { value: "openai/gpt-5.5", label: "GPT-5.5" },
+    { value: "openai/gpt-5.4", label: "GPT-5.4" },
+    { value: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+    { value: "openai/gpt-5.3-codex", label: "GPT-5.3 Codex" },
+    { value: "opencode/big-pickle", label: "Big Pickle" },
+    { value: "opencode/deepseek-v4-flash-free", label: "Deepseek V4 Flash" },
+  ],
+
+  DEFAULT: "anthropic/claude-sonnet-4-5",
+};
+
+/**
  * Ordered provider registry. Display order in selection UIs.
  */
 export const PROVIDERS = [
@@ -132,4 +154,6 @@ export const PROVIDERS = [
   { id: "codex", name: "OpenAI", models: CODEX_MODELS },
   { id: "gemini", name: "Google", models: GEMINI_MODELS },
   { id: "cursor", name: "Cursor", models: CURSOR_MODELS },
+  { id: "kiro", name: "Kiro", models: KIRO_MODELS },
+  { id: "opencode", name: "OpenCode", models: OPENCODE_MODELS },
 ];

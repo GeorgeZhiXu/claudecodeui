@@ -3,6 +3,11 @@ import { Check, ChevronDown } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 
 import { useServerPlatform } from "../../../../hooks/useServerPlatform";
+import type {
+  ProjectSession,
+  LLMProvider,
+  ProviderModelsDefinition,
+} from "../../../../types/app";
 import SessionProviderLogo from "../../../llm-logo-provider/SessionProviderLogo";
 import {
   CLAUDE_MODELS,
@@ -28,6 +33,14 @@ import {
   Card,
 } from "../../../../shared/view/ui";
 
+const PROVIDER_META: { id: LLMProvider; name: string }[] = [
+  { id: "claude", name: "Anthropic" },
+  { id: "codex", name: "OpenAI" },
+  { id: "gemini", name: "Google" },
+  { id: "cursor", name: "Cursor" },
+  { id: "opencode", name: "OpenCode" },
+];
+
 const MOD_KEY =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
 
@@ -47,6 +60,10 @@ type ProviderSelectionEmptyStateProps = {
   setGeminiModel: (model: string) => void;
   kiroModel: string;
   setKiroModel: (model: string) => void;
+  opencodeModel: string;
+  setOpenCodeModel: (model: string) => void;
+  providerModelCatalog: Partial<Record<LLMProvider, ProviderModelsDefinition>>;
+  providerModelsLoading: boolean;
   tasksEnabled: boolean;
   isTaskMasterInstalled: boolean | null;
   onShowAllTasks?: (() => void) | null;
@@ -56,7 +73,7 @@ type ProviderSelectionEmptyStateProps = {
 type ProviderGroup = {
   id: LLMProvider;
   name: string;
-  models: { value: string; label: string }[];
+  models: { value: string; label: string; description?: string }[];
 };
 
 const PROVIDER_GROUPS: ProviderGroup[] = [
@@ -74,6 +91,12 @@ function getModelConfig(p: LLMProvider) {
   if (p === "gemini") return GEMINI_MODELS;
   if (p === "kiro") return KIRO_MODELS;
   return CURSOR_MODELS;
+function getModelConfig(
+  p: LLMProvider,
+  catalog: Partial<Record<LLMProvider, ProviderModelsDefinition>>,
+): ProviderModelsDefinition {
+  const entry = catalog[p];
+  return entry ?? { OPTIONS: [], DEFAULT: "" };
 }
 
 function getCurrentModel(
@@ -83,11 +106,13 @@ function getCurrentModel(
   co: string,
   g: string,
   ki: string,
+  o: string,
 ) {
   if (p === "claude") return c;
   if (p === "codex") return co;
   if (p === "gemini") return g;
   if (p === "kiro") return ki;
+  if (p === "opencode") return o;
   return cu;
 }
 
@@ -97,6 +122,7 @@ function getProviderDisplayName(p: LLMProvider) {
   if (p === "codex") return "Codex";
   if (p === "gemini") return "Gemini";
   if (p === "kiro") return "Kiro";
+  if (p === "opencode") return "OpenCode";
   return "Gemini";
 }
 
@@ -116,6 +142,10 @@ export default function ProviderSelectionEmptyState({
   setGeminiModel,
   kiroModel,
   setKiroModel,
+  opencodeModel,
+  setOpenCodeModel,
+  providerModelCatalog,
+  providerModelsLoading,
   tasksEnabled,
   isTaskMasterInstalled,
   onShowAllTasks,
@@ -125,10 +155,14 @@ export default function ProviderSelectionEmptyState({
   const { isWindowsServer } = useServerPlatform();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const visibleProviderGroups = useMemo(
-    () => (isWindowsServer ? PROVIDER_GROUPS.filter((p) => p.id !== "cursor") : PROVIDER_GROUPS),
-    [isWindowsServer],
-  );
+  const visibleProviderGroups = useMemo(() => {
+    const groups: ProviderGroup[] = PROVIDER_META.map((p) => ({
+      id: p.id,
+      name: p.name,
+      models: providerModelCatalog[p.id]?.OPTIONS ?? [],
+    }));
+    return isWindowsServer ? groups.filter((p) => p.id !== "cursor") : groups;
+  }, [isWindowsServer, providerModelCatalog]);
 
   useEffect(() => {
     if (isWindowsServer && provider === "cursor") {
@@ -148,15 +182,16 @@ export default function ProviderSelectionEmptyState({
     codexModel,
     geminiModel,
     kiroModel,
+    opencodeModel,
   );
 
   const currentModelLabel = useMemo(() => {
-    const config = getModelConfig(provider);
+    const config = getModelConfig(provider, providerModelCatalog);
     const found = config.OPTIONS.find(
       (o: { value: string; label: string }) => o.value === currentModel,
     );
     return found?.label || currentModel;
-  }, [provider, currentModel]);
+  }, [provider, currentModel, providerModelCatalog]);
 
   const setModelForProvider = useCallback(
     (providerId: LLMProvider, modelValue: string) => {
@@ -172,12 +207,16 @@ export default function ProviderSelectionEmptyState({
       } else if (providerId === "kiro") {
         setKiroModel(modelValue);
         localStorage.setItem("kiro-model", modelValue);
+      } else if (providerId === "opencode") {
+        setOpenCodeModel(modelValue);
+        localStorage.setItem("opencode-model", modelValue);
       } else {
         setCursorModel(modelValue);
         localStorage.setItem("cursor-model", modelValue);
       }
     },
     [setClaudeModel, setCursorModel, setCodexModel, setGeminiModel, setKiroModel],
+    [setClaudeModel, setCursorModel, setCodexModel, setGeminiModel, setOpenCodeModel],
   );
 
   const handleModelSelect = useCallback(
@@ -239,6 +278,9 @@ export default function ProviderSelectionEmptyState({
 
             <DialogContent className="max-w-md overflow-hidden p-0">
               <DialogTitle>Model Selector</DialogTitle>
+              <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
+                <p className="text-sm font-semibold text-foreground">Choose a model</p>
+              </div>
               <Command>
                 <CommandInput
                   placeholder={t("providerSelection.searchModels", {
@@ -266,16 +308,28 @@ export default function ProviderSelectionEmptyState({
                         </span>
                       }
                     >
+                      {group.models.length === 0 && providerModelsLoading ? (
+                        <CommandItem disabled className="ml-4 border-l border-border/40 pl-4 text-muted-foreground">
+                          {t("providerSelection.loadingModels", { defaultValue: "Loading models…" })}
+                        </CommandItem>
+                      ) : null}
                       {group.models.map((model) => {
                         const isSelected = provider === group.id && currentModel === model.value;
                         return (
                           <CommandItem
                             key={`${group.id}-${model.value}`}
-                            value={`${group.name} ${model.label}`}
+                            value={`${group.name} ${model.label} ${model.description || ''}`}
                             onSelect={() => handleModelSelect(group.id, model.value)}
                             className="ml-4 border-l border-border/40 pl-4"
                           >
-                            <span className="flex-1 truncate">{model.label}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate">{model.label}</div>
+                              {model.description && (
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {model.description}
+                                </div>
+                              )}
+                            </div>
                             {isSelected && (
                               <Check className="ml-auto h-4 w-4 shrink-0 text-primary" />
                             )}
@@ -306,6 +360,9 @@ export default function ProviderSelectionEmptyState({
                 }),
                 kiro: t("providerSelection.readyPrompt.kiro", {
                   model: kiroModel,
+                opencode: t("providerSelection.readyPrompt.opencode", {
+                  model: opencodeModel,
+                  defaultValue: "Ready with OpenCode {{model}}",
                 }),
               }[provider]
             }
