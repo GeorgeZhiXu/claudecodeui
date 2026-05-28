@@ -15,6 +15,7 @@ const FALLBACK_DEFAULT_MODEL: Record<LLMProvider, string> = {
   cursor: 'gpt-5.3-codex',
   codex: 'gpt-5.4',
   gemini: 'gemini-3.1-pro-preview',
+  kiro: 'auto',
   opencode: 'anthropic/claude-sonnet-4-5',
 };
 
