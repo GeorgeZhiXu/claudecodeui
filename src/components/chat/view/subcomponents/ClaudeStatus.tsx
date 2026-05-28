@@ -30,6 +30,7 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
   cursor: 'messageTypes.cursor',
   gemini: 'messageTypes.gemini',
   kiro: 'messageTypes.kiro',
+  opencode: 'messageTypes.opencode',
 };
 
 function formatElapsedTime(totalSeconds: number) {

@@ -14,10 +14,10 @@ import { useSessionStore } from '../../../stores/useSessionStore';
 
 import ChatMessagesPane from './subcomponents/ChatMessagesPane';
 import ChatComposer from './subcomponents/ChatComposer';
+import CommandResultModal from './subcomponents/CommandResultModal';
 
 
 type PendingViewSession = {
-  sessionId: string | null;
   startedAt: number;
 };
 
@@ -74,19 +74,26 @@ function ChatInterface({
     setGeminiModel,
     kiroModel,
     setKiroModel,
+    opencodeModel,
+    setOpenCodeModel,
     permissionMode,
     pendingPermissionRequests,
     setPendingPermissionRequests,
     cyclePermissionMode,
+    providerModelCatalog,
+    providerModelCacheCatalog,
+    providerModelsLoading,
+    providerModelsRefreshing,
+    hardRefreshProviderModels,
+    selectProviderModel,
   } = useChatProviderState({
     selectedSession,
+    selectedProject,
   });
 
   const {
     chatMessages,
     addMessage,
-    clearMessages,
-    rewindMessages,
     isLoading,
     setIsLoading,
     currentSessionId,
@@ -172,7 +179,9 @@ function ChatInterface({
     handlePermissionDecision,
     handleGrantToolPermission,
     handleInputFocusChange,
-    isInputFocused,
+    isInputFocused: _isInputFocused,
+    commandModalPayload,
+    closeCommandModal,
   } = useChatComposerState({
     selectedProject,
     selectedSession,
@@ -185,6 +194,7 @@ function ChatInterface({
     codexModel,
     geminiModel,
     kiroModel,
+    opencodeModel,
     isLoading,
     canAbortSession,
     tokenBudget,
@@ -198,8 +208,6 @@ function ChatInterface({
     pendingViewSessionRef,
     scrollToBottom,
     addMessage,
-    clearMessages,
-    rewindMessages,
     setIsLoading,
     setCanAbortSession,
     setClaudeStatus,
@@ -237,6 +245,7 @@ function ChatInterface({
     streamTimerRef,
     accumulatedStreamRef,
     onSessionInactive,
+    onSessionActive,
     onSessionProcessing,
     onSessionNotProcessing,
     onNavigateToSession,
@@ -286,6 +295,9 @@ function ChatInterface({
             : provider === 'kiro'
               ? t('messageTypes.kiro', { defaultValue: 'Kiro' })
               : t('messageTypes.claude');
+            : provider === 'opencode'
+              ? t('messageTypes.opencode', { defaultValue: 'OpenCode' })
+            : t('messageTypes.claude');
 
     return (
       <div className="flex h-full items-center justify-center">
@@ -325,6 +337,10 @@ function ChatInterface({
           setGeminiModel={setGeminiModel}
           kiroModel={kiroModel}
           setKiroModel={setKiroModel}
+          opencodeModel={opencodeModel}
+          setOpenCodeModel={setOpenCodeModel}
+          providerModelCatalog={providerModelCatalog}
+          providerModelsLoading={providerModelsLoading}
           tasksEnabled={tasksEnabled}
           isTaskMasterInstalled={isTaskMasterInstalled}
           onShowAllTasks={onShowAllTasks}
@@ -416,6 +432,9 @@ function ChatInterface({
                     : provider === 'kiro'
                       ? t('messageTypes.kiro', { defaultValue: 'Kiro' })
                       : t('messageTypes.claude'),
+                    : provider === 'opencode'
+                      ? t('messageTypes.opencode', { defaultValue: 'OpenCode' })
+                    : t('messageTypes.claude'),
           })}
           isTextareaExpanded={isTextareaExpanded}
           sendByCtrlEnter={sendByCtrlEnter}
@@ -423,6 +442,17 @@ function ChatInterface({
       </div>
 
       <QuickSettingsPanel />
+
+      <CommandResultModal
+        payload={commandModalPayload}
+        onClose={closeCommandModal}
+        providerModelCatalog={providerModelCatalog}
+        providerModelCacheCatalog={providerModelCacheCatalog}
+        providerModelsRefreshing={providerModelsRefreshing}
+        onHardRefreshProviderModels={hardRefreshProviderModels}
+        currentSessionId={currentSessionId || selectedSession?.id || null}
+        onSelectProviderModel={selectProviderModel}
+      />
     </PermissionContext.Provider>
   );
 }

@@ -63,6 +63,7 @@ export type SessionViewModel = {
   isCodexSession: boolean;
   isGeminiSession: boolean;
   isKiroSession: boolean;
+  isOpenCodeSession: boolean;
   isActive: boolean;
   sessionName: string;
   sessionTime: string;
