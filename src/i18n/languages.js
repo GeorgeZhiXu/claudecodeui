@@ -15,6 +15,16 @@ export const languages = [
     nativeName: 'English',
   },
   {
+    value: 'fr',
+    label: 'French',
+    nativeName: 'Français',
+  },
+  {
+    value: 'es',
+    label: 'Spanish',
+    nativeName: 'Español',
+  },
+  {
     value: 'ko',
     label: 'Korean',
     nativeName: '한국어',
@@ -23,6 +33,11 @@ export const languages = [
     value: 'zh-CN',
     label: 'Simplified Chinese',
     nativeName: '简体中文',
+  },
+  {
+    value: 'zh-TW',
+    label: 'Traditional Chinese',
+    nativeName: '繁體中文',
   },
   {
     value: 'ja',
@@ -43,6 +58,8 @@ export const languages = [
     value: 'tr',
     label: 'Turkish',
     nativeName: 'Türkçe',
+  },
+  {
     value: 'it',
     label: 'Italian',
     nativeName: 'Italiano',

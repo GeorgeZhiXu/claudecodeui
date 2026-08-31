@@ -18,7 +18,7 @@
     "claude": "Claude",
     "cursor": "Cursor",
     "codex": "Codex",
-    "gemini": "Gemini"
+    "kiro": "Kiro"
   },
   "tools": {
     "settings": "Impostazioni strumento",
@@ -103,24 +103,6 @@
     },
     "technicalDetails": "Dettagli tecnici"
   },
-  "gemini": {
-    "permissionMode": "Modalità permessi Gemini",
-    "description": "Controlla come Gemini CLI gestisce le approvazioni delle operazioni.",
-    "modes": {
-      "default": {
-        "title": "Standard (chiedi approvazione)",
-        "description": "Gemini chiederà l'approvazione prima di eseguire comandi, scrivere file e recuperare risorse web."
-      },
-      "autoEdit": {
-        "title": "Modifica automatica (salta approvazioni file)",
-        "description": "Gemini approverà automaticamente modifiche ai file e recupero web, ma chiederà conferma per i comandi shell."
-      },
-      "yolo": {
-        "title": "YOLO (ignora tutti i permessi)",
-        "description": "Gemini eseguirà tutte le operazioni senza chiedere approvazione. Usa con cautela."
-      }
-    }
-  },
   "input": {
     "placeholder": "Digita / per i comandi, @ per i file, o chiedi qualcosa a {{provider}}...",
     "placeholderDefault": "Scrivi il tuo messaggio...",
@@ -138,42 +120,6 @@
     "clearInput": "Cancella input",
     "scrollToBottom": "Scorri in basso"
   },
-  "thinkingMode": {
-    "selector": {
-      "title": "Modalità ragionamento",
-      "description": "Il ragionamento esteso dà a Claude più tempo per valutare le alternative",
-      "active": "Attivo",
-      "tip": "Modalità di ragionamento più elevate richiedono più tempo ma forniscono un'analisi più approfondita"
-    },
-    "modes": {
-      "none": {
-        "name": "Standard",
-        "description": "Risposta Claude normale",
-        "prefix": ""
-      },
-      "think": {
-        "name": "Pensa",
-        "description": "Ragionamento esteso base",
-        "prefix": "think"
-      },
-      "thinkHard": {
-        "name": "Pensa di più",
-        "description": "Valutazione più approfondita",
-        "prefix": "think hard"
-      },
-      "thinkHarder": {
-        "name": "Pensa ancora",
-        "description": "Analisi profonda con alternative",
-        "prefix": "think harder"
-      },
-      "ultrathink": {
-        "name": "Ultrapensiero",
-        "description": "Budget massimo di ragionamento",
-        "prefix": "ultrathink"
-      }
-    },
-    "buttonTitle": "Modalità ragionamento: {{mode}}"
-  },
   "providerSelection": {
     "title": "Scegli il tuo assistente AI",
     "description": "Seleziona un provider per iniziare una nuova conversazione",
@@ -182,13 +128,14 @@
       "anthropic": "di Anthropic",
       "openai": "di OpenAI",
       "cursorEditor": "Editor codice AI",
-      "google": "di Google"
+      "google": "di Google",
+      "kiro": "IDE agentico AWS"
     },
     "readyPrompt": {
       "claude": "Pronto a usare Claude con {{model}}. Inizia a digitare il tuo messaggio qui sotto.",
       "cursor": "Pronto a usare Cursor con {{model}}. Inizia a digitare il tuo messaggio qui sotto.",
       "codex": "Pronto a usare Codex con {{model}}. Inizia a digitare il tuo messaggio qui sotto.",
-      "gemini": "Pronto a usare Gemini con {{model}}. Inizia a digitare il tuo messaggio qui sotto.",
+      "kiro": "Pronto a usare Kiro con {{model}}. Inizia a digitare il tuo messaggio qui sotto.",
       "default": "Seleziona un provider sopra per iniziare"
     },
     "pressToSearch": "Premi <kbd>{{shortcut}}</kbd> per cercare sessioni, file e commit"

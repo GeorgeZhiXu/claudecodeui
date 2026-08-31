@@ -25,6 +25,8 @@ function Sidebar({
   projects,
   selectedProject,
   selectedSession,
+  activeSessions,
+  attentionSessionIds,
   onProjectSelect,
   onSessionSelect,
   onNewSession,
@@ -42,7 +44,7 @@ function Sidebar({
 }: SidebarProps) {
   const { t } = useTranslation(['sidebar', 'common']);
   const { isPWA } = useDeviceSettings({ trackMobile: false });
-  const { updateAvailable, latestVersion, currentVersion, releaseInfo, installMode } = useVersionCheck(
+  const { updateAvailable, restartRequired, latestVersion, currentVersion, releaseInfo, installMode } = useVersionCheck(
     'siteboon',
     'claudecodeui',
   );
@@ -70,6 +72,7 @@ function Sidebar({
     isSearching,
     searchProgress,
     clearConversationResults,
+    runningSessionsCount,
     deletingProjects,
     deleteConfirmation,
     sessionDeleteConfirmation,
@@ -79,6 +82,14 @@ function Sidebar({
     archivedSessions,
     archivedSessionsCount,
     isArchivedSessionsLoading,
+    recentConversations,
+    recentConversationsTotal,
+    recentConversationsHasMore,
+    isRecentConversationsLoading,
+    isLoadingMoreRecentConversations,
+    recentConversationsError,
+    reloadRecentConversations,
+    loadMoreRecentConversations,
     toggleProject,
     handleSessionClick,
     toggleStarProject,
@@ -113,6 +124,7 @@ function Sidebar({
     projects,
     selectedProject,
     selectedSession,
+    activeSessions,
     isLoading,
     isMobile,
     t,
@@ -159,6 +171,9 @@ function Sidebar({
     mcpServerStatus,
     getProjectSessions,
     loadingMoreProjects,
+    activeSessions,
+    attentionSessionIds,
+    forceExpanded: searchMode === 'running',
     isProjectStarred,
     onEditingNameChange: setEditingName,
     onToggleProject: toggleProject,
@@ -219,6 +234,7 @@ function Sidebar({
           onExpand={handleExpandSidebar}
           onShowSettings={onShowSettings}
           updateAvailable={updateAvailable}
+          restartRequired={restartRequired}
           onShowVersionModal={() => setShowVersionModal(true)}
           t={t}
         />
@@ -229,10 +245,17 @@ function Sidebar({
             isMobile={isMobile}
             isLoading={isLoading}
             projects={projects}
+            runningSessionsCount={runningSessionsCount}
             archivedProjects={archivedProjects}
             archivedSessions={archivedSessions}
             archivedSessionsCount={archivedSessionsCount}
             isArchivedSessionsLoading={isArchivedSessionsLoading}
+            recentConversations={recentConversations}
+            recentConversationsTotal={recentConversationsTotal}
+            recentConversationsHasMore={recentConversationsHasMore}
+            isRecentConversationsLoading={isRecentConversationsLoading}
+            isLoadingMoreRecentConversations={isLoadingMoreRecentConversations}
+            recentConversationsError={recentConversationsError}
             searchFilter={searchFilter}
             onSearchFilterChange={setSearchFilter}
             onClearSearchFilter={() => setSearchFilter('')}
@@ -245,6 +268,8 @@ function Sidebar({
             isSearching={isSearching}
             searchProgress={searchProgress}
             onRestoreArchivedProject={restoreArchivedProject}
+            onLoadMoreRecentConversations={loadMoreRecentConversations}
+            onRetryRecentConversations={reloadRecentConversations}
             onArchivedSessionClick={openArchivedSession}
             onRestoreArchivedSession={restoreArchivedSession}
             onDeleteArchivedSession={(session) => {
@@ -290,6 +315,7 @@ function Sidebar({
             onCreateProject={() => setShowNewProject(true)}
             onCollapseSidebar={handleCollapseSidebar}
             updateAvailable={updateAvailable}
+            restartRequired={restartRequired}
             releaseInfo={releaseInfo}
             latestVersion={latestVersion}
             currentVersion={currentVersion}

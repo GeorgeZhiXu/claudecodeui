@@ -1,22 +1,15 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 
 import type {
   ProjectSession,
   LLMProvider,
+  ProviderModelActions,
+  ProviderModelOption,
   ProviderModelsDefinition,
 } from "../../../../types/app";
-import SessionProviderLogo from "../../../llm-logo-provider/SessionProviderLogo";
-import {
-  CLAUDE_MODELS,
-  CURSOR_MODELS,
-  CODEX_MODELS,
-  GEMINI_MODELS,
-  KIRO_MODELS,
-  PROVIDERS,
-} from "../../../../../shared/modelConstants";
-import type { ProjectSession, LLMProvider } from "../../../../types/app";
+import LLMProviderLogo from "../../../llm-provider-logo/LLMProviderLogo";
 import { NextTaskBanner } from "../../../task-master";
 import {
   Dialog,
@@ -30,18 +23,33 @@ import {
   CommandGroup,
   CommandItem,
   Card,
+  Badge,
+  Button,
 } from "../../../../shared/view/ui";
+
+import ModelLibraryPanel from "./ModelLibraryPanel";
 
 const PROVIDER_META: { id: LLMProvider; name: string }[] = [
   { id: "claude", name: "Anthropic" },
   { id: "codex", name: "OpenAI" },
-  { id: "gemini", name: "Google" },
   { id: "cursor", name: "Cursor" },
+  { id: "kiro", name: "Kiro" },
   { id: "opencode", name: "OpenCode" },
 ];
 
 const MOD_KEY =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl";
+
+// cmdk's default filter is fuzzy (loose character-subsequence scoring), which
+// surfaces unrelated models — e.g. searching "chatgpt" also matched "Fable".
+// Require every whitespace-separated search token to appear as a literal
+// substring instead, so "claude 4.5" still matches "Anthropic Claude Haiku 4.5"
+// but "chatgpt" only matches models that actually contain it.
+function modelSearchFilter(value: string, search: string): number {
+  const haystack = value.toLowerCase();
+  const tokens = search.toLowerCase().split(/\s+/).filter(Boolean);
+  return tokens.every((token) => haystack.includes(token)) ? 1 : 0;
+}
 
 type ProviderSelectionEmptyStateProps = {
   selectedSession: ProjectSession | null;
@@ -55,13 +63,12 @@ type ProviderSelectionEmptyStateProps = {
   setCursorModel: (model: string) => void;
   codexModel: string;
   setCodexModel: (model: string) => void;
-  geminiModel: string;
-  setGeminiModel: (model: string) => void;
   kiroModel: string;
   setKiroModel: (model: string) => void;
   opencodeModel: string;
   setOpenCodeModel: (model: string) => void;
   providerModelCatalog: Partial<Record<LLMProvider, ProviderModelsDefinition>>;
+  providerModelActions: ProviderModelActions;
   providerModelsLoading: boolean;
   tasksEnabled: boolean;
   isTaskMasterInstalled: boolean | null;
@@ -72,24 +79,9 @@ type ProviderSelectionEmptyStateProps = {
 type ProviderGroup = {
   id: LLMProvider;
   name: string;
-  models: { value: string; label: string; description?: string }[];
+  models: ProviderModelOption[];
 };
 
-const PROVIDER_GROUPS: ProviderGroup[] = [
-  ...PROVIDERS.map((p) => ({
-    id: p.id as LLMProvider,
-    name: p.name,
-    models: p.models.OPTIONS,
-  })),
-  { id: "kiro", name: "Kiro", models: KIRO_MODELS.OPTIONS },
-];
-
-function getModelConfig(p: LLMProvider) {
-  if (p === "claude") return CLAUDE_MODELS;
-  if (p === "codex") return CODEX_MODELS;
-  if (p === "gemini") return GEMINI_MODELS;
-  if (p === "kiro") return KIRO_MODELS;
-  return CURSOR_MODELS;
 function getModelConfig(
   p: LLMProvider,
   catalog: Partial<Record<LLMProvider, ProviderModelsDefinition>>,
@@ -103,14 +95,12 @@ function getCurrentModel(
   c: string,
   cu: string,
   co: string,
-  g: string,
-  ki: string,
+  k: string,
   o: string,
 ) {
   if (p === "claude") return c;
   if (p === "codex") return co;
-  if (p === "gemini") return g;
-  if (p === "kiro") return ki;
+  if (p === "kiro") return k;
   if (p === "opencode") return o;
   return cu;
 }
@@ -119,10 +109,9 @@ function getProviderDisplayName(p: LLMProvider) {
   if (p === "claude") return "Claude";
   if (p === "cursor") return "Cursor";
   if (p === "codex") return "Codex";
-  if (p === "gemini") return "Gemini";
   if (p === "kiro") return "Kiro";
   if (p === "opencode") return "OpenCode";
-  return "Gemini";
+  return "Claude";
 }
 
 export default function ProviderSelectionEmptyState({
@@ -137,13 +126,12 @@ export default function ProviderSelectionEmptyState({
   setCursorModel,
   codexModel,
   setCodexModel,
-  geminiModel,
-  setGeminiModel,
   kiroModel,
   setKiroModel,
   opencodeModel,
   setOpenCodeModel,
   providerModelCatalog,
+  providerModelActions,
   providerModelsLoading,
   tasksEnabled,
   isTaskMasterInstalled,
@@ -152,6 +140,7 @@ export default function ProviderSelectionEmptyState({
 }: ProviderSelectionEmptyStateProps) {
   const { t } = useTranslation("chat");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [modelLibraryOpen, setModelLibraryOpen] = useState(false);
 
   const visibleProviderGroups = useMemo<ProviderGroup[]>(() => {
     return PROVIDER_META.map((p) => ({
@@ -170,7 +159,6 @@ export default function ProviderSelectionEmptyState({
     claudeModel,
     cursorModel,
     codexModel,
-    geminiModel,
     kiroModel,
     opencodeModel,
   );
@@ -191,9 +179,6 @@ export default function ProviderSelectionEmptyState({
       } else if (providerId === "codex") {
         setCodexModel(modelValue);
         localStorage.setItem("codex-model", modelValue);
-      } else if (providerId === "gemini") {
-        setGeminiModel(modelValue);
-        localStorage.setItem("gemini-model", modelValue);
       } else if (providerId === "kiro") {
         setKiroModel(modelValue);
         localStorage.setItem("kiro-model", modelValue);
@@ -205,8 +190,7 @@ export default function ProviderSelectionEmptyState({
         localStorage.setItem("cursor-model", modelValue);
       }
     },
-    [setClaudeModel, setCursorModel, setCodexModel, setGeminiModel, setKiroModel],
-    [setClaudeModel, setCursorModel, setCodexModel, setGeminiModel, setOpenCodeModel],
+    [setClaudeModel, setCursorModel, setCodexModel, setKiroModel, setOpenCodeModel],
   );
 
   const handleModelSelect = useCallback(
@@ -220,10 +204,20 @@ export default function ProviderSelectionEmptyState({
     [setProvider, setModelForProvider, textareaRef],
   );
 
+  const openModelLibrary = () => {
+    setDialogOpen(false);
+    setModelLibraryOpen(true);
+  };
+
+  const closeModelLibrary = () => {
+    setModelLibraryOpen(false);
+    setDialogOpen(true);
+  };
+
   if (!selectedSession && !currentSessionId) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-[34.25rem]">
           <div className="mb-8 text-center">
             <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               {t("providerSelection.title")}
@@ -241,7 +235,7 @@ export default function ProviderSelectionEmptyState({
                 tabIndex={0}
               >
                 <div className="flex items-center gap-2 p-3">
-                  <SessionProviderLogo
+                  <LLMProviderLogo
                     provider={provider}
                     className="h-5 w-5 shrink-0"
                   />
@@ -268,10 +262,31 @@ export default function ProviderSelectionEmptyState({
 
             <DialogContent className="max-w-md overflow-hidden p-0">
               <DialogTitle>Model Selector</DialogTitle>
-              <div className="border-b border-border/60 bg-muted/20 px-4 py-3">
-                <p className="text-sm font-semibold text-foreground">Choose a model</p>
+              <div className="flex items-center justify-between gap-3 border-b border-border/60 bg-muted/20 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {t("providerSelection.chooseModel", {
+                      defaultValue: "Choose a model",
+                    })}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {t("providerSelection.chooseModelDescription", {
+                      defaultValue: "Built-in and custom models in one list",
+                    })}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={openModelLibrary}
+                  className="h-8 shrink-0 rounded-lg px-2.5 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("providerSelection.addModel", { defaultValue: "Add model" })}
+                </Button>
               </div>
-              <Command>
+              <Command filter={modelSearchFilter}>
                 <CommandInput
                   placeholder={t("providerSelection.searchModels", {
                     defaultValue: "Search models...",
@@ -293,7 +308,7 @@ export default function ProviderSelectionEmptyState({
                       }
                       heading={
                         <span className="flex items-center gap-1.5">
-                          <SessionProviderLogo provider={group.id} className="h-3.5 w-3.5 shrink-0" />
+                          <LLMProviderLogo provider={group.id} className="h-3.5 w-3.5 shrink-0" />
                           {group.name}
                         </span>
                       }
@@ -313,10 +328,15 @@ export default function ProviderSelectionEmptyState({
                             className="ml-4 border-l border-border/40 pl-4"
                           >
                             <div className="min-w-0 flex-1">
-                              <div className="truncate">{model.label}</div>
-                              {model.description && (
-                                <div className="truncate text-xs text-muted-foreground">
-                                  {model.description}
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="truncate">{model.label}</span>
+                                {model.isCustom && (
+                                  <Badge className="h-4 shrink-0 rounded-full px-1.5 text-[8px]">Custom</Badge>
+                                )}
+                              </div>
+                              {model.label !== model.value && (
+                                <div className="truncate font-mono text-[10px] text-muted-foreground">
+                                  {model.value}
                                 </div>
                               )}
                             </div>
@@ -333,6 +353,31 @@ export default function ProviderSelectionEmptyState({
             </DialogContent>
           </Dialog>
 
+          <Dialog
+            open={modelLibraryOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                setModelLibraryOpen(true);
+              } else {
+                closeModelLibrary();
+              }
+            }}
+          >
+            <DialogContent className="flex h-[min(90dvh,46rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col overflow-hidden rounded-3xl p-4 sm:p-5">
+              <DialogTitle>
+                {t("providerSelection.manageModels", {
+                  defaultValue: "Manage models",
+                })}
+              </DialogTitle>
+              <ModelLibraryPanel
+                initialProvider={provider}
+                providerModelCatalog={providerModelCatalog}
+                actions={providerModelActions}
+                onDone={closeModelLibrary}
+              />
+            </DialogContent>
+          </Dialog>
+
           <p className="mt-4 text-center text-sm text-muted-foreground/70">
             {
               {
@@ -345,11 +390,10 @@ export default function ProviderSelectionEmptyState({
                 codex: t("providerSelection.readyPrompt.codex", {
                   model: codexModel,
                 }),
-                gemini: t("providerSelection.readyPrompt.gemini", {
-                  model: geminiModel,
-                }),
                 kiro: t("providerSelection.readyPrompt.kiro", {
                   model: kiroModel,
+                  defaultValue: "Ready to use Kiro with {{model}}. Start typing your message below.",
+                }),
                 opencode: t("providerSelection.readyPrompt.opencode", {
                   model: opencodeModel,
                   defaultValue: "Ready with OpenCode {{model}}",
@@ -360,6 +404,7 @@ export default function ProviderSelectionEmptyState({
 
           <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground/60">
             <Trans
+              ns="chat"
               i18nKey="providerSelection.pressToSearch"
               values={{ shortcut: MOD_KEY === "⌘" ? "⌘K" : "Ctrl+K" }}
               components={{
@@ -386,7 +431,7 @@ export default function ProviderSelectionEmptyState({
   if (selectedSession) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="max-w-md px-6 text-center">
+        <div className="max-w-[34.25rem] px-6 text-center">
           <p className="mb-1.5 text-lg font-semibold text-foreground">
             {t("session.continue.title")}
           </p>

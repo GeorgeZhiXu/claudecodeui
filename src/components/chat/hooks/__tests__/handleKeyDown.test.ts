@@ -1,4 +1,32 @@
-import { describe, it, expect, vi } from 'vitest';
+import assert from 'node:assert/strict';
+import { describe, it, mock } from 'node:test';
+
+type TrackedMock = {
+  mock: {
+    callCount: () => number;
+    calls: Array<{ arguments: unknown[] }>;
+  };
+};
+
+const asTrackedMock = (value: unknown): TrackedMock => value as TrackedMock;
+
+const expect = (actual: unknown) => ({
+  toBe: (expected: unknown) => assert.equal(actual, expected),
+  toHaveBeenCalledOnce: () => assert.equal(asTrackedMock(actual).mock.callCount(), 1),
+  toHaveBeenCalledTimes: (expected: number) => (
+    assert.equal(asTrackedMock(actual).mock.callCount(), expected)
+  ),
+  toHaveBeenCalledWith: (...expected: unknown[]) => (
+    assert.deepEqual(asTrackedMock(actual).mock.calls[0]?.arguments, expected)
+  ),
+  not: {
+    toHaveBeenCalled: () => assert.equal(asTrackedMock(actual).mock.callCount(), 0),
+  },
+});
+
+const vi = {
+  fn: () => mock.fn(),
+};
 
 /**
  * Tests for the keyboard shortcut logic used in useChatComposerState's handleKeyDown.

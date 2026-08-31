@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
+
 import { authenticatedFetch } from "../../../utils/api";
-import { ReleaseInfo } from "../../../types/sharedTypes";
+import { ReleaseInfo } from "../../../shared/types";
 import { copyTextToClipboard } from "../../../utils/clipboard";
 import type { InstallMode } from "../../../hooks/useVersionCheck";
-import { IS_PLATFORM } from "../../../constants/config";
+import { IS_PLATFORM } from "../../../shared/utils";
 
 interface VersionUpgradeModalProps {
     isOpen: boolean;
@@ -37,7 +40,12 @@ export function VersionUpgradeModal({
     const [reloadCountdown, setReloadCountdown] = useState<number | null>(null);
 
     useEffect(() => {
-        if (!IS_PLATFORM || reloadCountdown === null || reloadCountdown <= 0) {
+        if (!IS_PLATFORM || reloadCountdown === null) {
+            return;
+        }
+
+        if (reloadCountdown <= 0) {
+            window.location.reload();
             return;
         }
 
@@ -66,19 +74,53 @@ export function VersionUpgradeModal({
                 method: 'POST',
             });
 
-            const data = await response.json();
+            // The server (or a proxy in front of it) can answer with an HTML
+            // page instead of JSON — e.g. while a hosted/Docker deployment
+            // restarts mid-update — so never parse the body blindly.
+            const rawBody = await response.text();
+            let data: { output?: string; error?: string } | null = null;
+            try {
+                data = JSON.parse(rawBody);
+            } catch {
+                data = null;
+            }
+
+            if (!data) {
+                if (IS_PLATFORM) {
+                    // On platform the update restarts the server, which often
+                    // cuts the response short. Treat it as in progress and let
+                    // the reload countdown pick up the new version.
+                    setUpdateOutput(prev => prev + '\nUpdate started. The server appears to be restarting to apply it.\n');
+                } else {
+                    setReloadCountdown(null);
+                    const message = `The update endpoint returned an unexpected response (HTTP ${response.status}). Update manually with the command below.`;
+                    setUpdateError(message);
+                    setUpdateOutput(prev => prev + '\n❌ Update failed: ' + message + '\n');
+                }
+                return;
+            }
 
             if (response.ok) {
-                setUpdateOutput(prev => prev + data.output + '\n');
+                setUpdateOutput(prev => prev + (data.output || '') + '\n');
                 setUpdateOutput(prev => prev + '\n✅ Update completed successfully!\n');
-                setUpdateOutput(prev => prev + 'Please restart the server to apply changes.' + '\n');
+                if (!IS_PLATFORM) {
+                    setUpdateOutput(prev => prev + 'Please restart the server to apply changes.' + '\n');
+                }
             } else {
+                setReloadCountdown(null);
                 setUpdateError(data.error || 'Update failed');
                 setUpdateOutput(prev => prev + '\n❌ Update failed: ' + (data.error || 'Unknown error') + '\n');
             }
         } catch (error: any) {
-            setUpdateError(error.message);
-            setUpdateOutput(prev => prev + '\n❌ Update failed: ' + error.message + '\n');
+            if (IS_PLATFORM) {
+                // Connection dropped mid-request — expected when the platform
+                // update restarts the server. Keep the countdown running.
+                setUpdateOutput(prev => prev + '\nConnection to the server was interrupted — it is likely restarting to apply the update.\n');
+            } else {
+                setReloadCountdown(null);
+                setUpdateError(error.message);
+                setUpdateOutput(prev => prev + '\n❌ Update failed: ' + error.message + '\n');
+            }
         } finally {
             setIsUpdating(false);
         }
@@ -154,8 +196,10 @@ export function VersionUpgradeModal({
                             )}
                         </div>
                         <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
-                            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-sm text-gray-700 dark:prose-invert dark:text-gray-300">
-                                {cleanChangelog(releaseInfo.body)}
+                            <div className="prose prose-sm max-w-none text-sm text-gray-700 dark:prose-invert dark:text-gray-300">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={changelogComponents}>
+                                    {cleanChangelog(releaseInfo.body)}
+                                </ReactMarkdown>
                             </div>
                         </div>
                     </div>
@@ -171,8 +215,8 @@ export function VersionUpgradeModal({
                         {IS_PLATFORM && reloadCountdown !== null && (
                             <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200">
                                 {reloadCountdown === 0
-                                    ? 'Refresh the page now. If that doesn\'t work, RESTART the environment.'
-                                    : `Refresh the page in ${reloadCountdown} ${reloadCountdown === 1 ? 'second' : 'seconds'}. If that doesn\'t work, RESTART the environment.`}
+                                    ? 'Refreshing the window now...'
+                                    : `This will refresh the window in ${reloadCountdown} ${reloadCountdown === 1 ? 'second' : 'seconds'}. If the update doesn't apply, RESTART the environment.`}
                             </div>
                         )}
                         {updateError && (
@@ -234,6 +278,14 @@ export function VersionUpgradeModal({
             </div>
         </div>
     );
+};
+
+const changelogComponents = {
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => (
+        <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline dark:text-blue-400">
+            {children}
+        </a>
+    ),
 };
 
 // Clean up changelog by removing GitHub-specific metadata
